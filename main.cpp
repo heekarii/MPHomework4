@@ -17,53 +17,54 @@ inline float getDiff(CvScalar a, CvScalar b) {
 }
 
 void paintLayer(IplImage *dst, IplImage *ref, int size) {
+    int grid = size - 1;
+    int arSize = (dst->width / grid) * (dst->height / grid);
+    BrushStroke *s = new BrushStroke[arSize];
+    int cnt = 0;
 
-	int grid = size - 1;
-	int arSize = (dst->width / grid) * (dst->height / grid);
-	BrushStroke *s = new BrushStroke[arSize];
+    for (int y = 0; y <= dst->height - grid; y += grid) {
+        for (int x = 0; x <= dst->width - grid; x += grid) {
+            float err = 0;
+            float maxErr = -1.0f;
+            BrushStroke p;
 
-	int cnt = 0;
-	for (int y = 0; y < dst->height; y += grid) {
-		for (int x = 0; x < dst->width; x += grid) {
-			if (x < 0 || x > dst->width - 1) continue;
-			if (y < 0 || y > dst->height - 1) continue;
-			float err = 0;
-			float maxErr = FLT_MIN;
-			BrushStroke p;
-			for (int u = y; u < y + grid; y++) {
-				for (int v = x; v < x + grid; x++) {
-					if (u > dst->height - 1) continue;
-					if (v > dst->width - 1) continue;
-					CvScalar a = cvGet2D(dst, u, v);
-					CvScalar b = cvGet2D(ref, u, v);
-					err += getDiff(a, b);
-				}
-			}
-			err /= (grid * grid);
-			printf("x = %d y = %d err = %f\n", x, y, err);
-			for (int u = y; u < y + grid; y++)
-				for (int v = x; v < x + grid; x++) {
-					if (u > dst->height - 1) continue;
-					if (v > dst->width - 1) continue;
-					CvScalar a = cvGet2D(dst, u, v);
-					CvScalar b = cvGet2D(ref, u, v);
-					float e = getDiff(a, b);
-					if (e > maxErr) {
-						maxErr = e;
-						p.sp = cvPoint(v, u);
-						p.size = size;
-						p.c = cvGet2D(dst, y, x);
-					}
-				}
-			s[cnt++] = p;
-		}
-	}
+            for (int u = y; u < y + grid; u++) {
+                for (int v = x; v < x + grid; v++) {
+                    CvScalar a = cvGet2D(dst, u, v);
+                    CvScalar b = cvGet2D(ref, u, v);
+                    err += getDiff(a, b);
+                }
+            }
+            err /= (grid * grid);
+            if (err < 10.0f) continue; // 에러 작은 경우 스킵 (속도 개선)
 
-	for (int k = 0; k < arSize; k++) {
-		cvCircle(dst, s[k].sp, s[k].size, s[k].c);
-	}
+            for (int u = y; u < y + grid; u++) {
+                for (int v = x; v < x + grid; v++) {
+                    float e = getDiff(cvGet2D(dst, u, v), cvGet2D(ref, u, v));
+                    if (e > maxErr) {
+                        maxErr = e;
+                        p.sp = cvPoint(v, u);
+                        p.size = size;
+                    }
+                }
+            }
+            p.c = cvGet2D(ref, p.sp.y, p.sp.x); // 색상은 ref 기준
+            s[cnt++] = p;
+        }
+    }
 
+    for (int i = cnt - 1; i > 0; i--) {
+        int j = rand() % (i + 1);
+        std::swap(s[i], s[j]);
+    }
+
+    for (int k = 0; k < cnt; k++) {
+        cvCircle(dst, s[k].sp, s[k].size, s[k].c, -1);
+    }
+
+    delete[] s;
 }
+
 
 void paint(IplImage *src, IplImage *dst, int size[]) {
 	int h = src->height;
@@ -74,31 +75,22 @@ void paint(IplImage *src, IplImage *dst, int size[]) {
 
 	for (int i = 0; i < 5; i++) {
 		cvSmooth(src, ref, CV_GAUSSIAN, size[i] * 4 - 1);
-		cvShowImage("ref", ref);
-		cvWaitKey();
 		paintLayer(dst, ref, size[i]);
+        cvShowImage("dst", dst);
+        cvWaitKey(1000);
 	}
-
-	cvShowImage("dst", dst);
-	cvWaitKey();
 }
-
-
-
-
 
 int main() {
 	IplImage *src = cvLoadImage("c:\\temp\\lena.jpg");
 	CvSize isize = cvGetSize(src);
 
 	IplImage *dst = cvCreateImage(isize, 8, 3);
-	cvSet(dst, cvScalar(INT_MAX, INT_MAX, INT_MAX));
+	cvSet(dst, cvScalar(255,255,255));
 
-	int size[5] = { 10, 8, 6, 4, 2 };
-	for (int i = 0; i < 5; i++) {
-		paint(src, dst, size);
-	}
+	int size[5] = { 35, 15, 7, 5, 3 };
 	cvShowImage("src", src);
+	paint(src, dst, size);
 	cvWaitKey();
 
 	return 0;
