@@ -16,7 +16,42 @@ inline float getDiff(CvScalar a, CvScalar b) {
 	);
 }
 
-void paintLayer(IplImage *dst, IplImage *ref, int size) {
+void paintLayer(IplImage *dst, IplImage *ref, int size, int mode);
+void paint(IplImage *src, IplImage *dst, int size[], int mode);
+void paintStroke(IplImage *src, BrushStroke *s, int k);
+
+
+int main() {
+	IplImage *src = cvLoadImage("c:\\temp\\lena.jpg");
+	CvSize isize = cvGetSize(src);
+
+	IplImage *dst = cvCreateImage(isize, 8, 3);
+	cvSet(dst, cvScalar(255,255,255));
+
+	int size[5] = { 32, 16, 8, 4, 2 };
+	cvShowImage("src", src);
+	paint(src, dst, size, 0);
+	cvWaitKey();
+
+	return 0;
+}
+
+void paint(IplImage *src, IplImage *dst, int size[], int mode) {
+    int h = src->height;
+    int w = src->width;
+    IplImage *ref = cvCreateImage(cvSize(h, w), 8, 3);
+    cvShowImage("dst", dst);
+    cvWaitKey();
+    int k = 3;
+
+    for (int i = 0; i < 5; i++) {
+        cvSmooth(src, ref, CV_GAUSSIAN, size[i] * 4 + 1);
+        paintLayer(dst, ref, size[i], mode);
+    }
+}
+
+
+void paintLayer(IplImage *dst, IplImage *ref, int size, int mode) {
     int grid = size - 1;
     int arSize = (dst->width / grid) * (dst->height / grid);
     BrushStroke *s = new BrushStroke[arSize];
@@ -36,7 +71,6 @@ void paintLayer(IplImage *dst, IplImage *ref, int size) {
                 }
             }
             err /= (grid * grid);
-            if (err < 10.0f) continue; // 에러 작은 경우 스킵 (속도 개선)
 
             for (int u = y; u < y + grid; u++) {
                 for (int v = x; v < x + grid; v++) {
@@ -58,40 +92,20 @@ void paintLayer(IplImage *dst, IplImage *ref, int size) {
         std::swap(s[i], s[j]);
     }
 
-    for (int k = 0; k < cnt; k++) {
-        cvCircle(dst, s[k].sp, s[k].size, s[k].c, -1);
+    if (mode == 0) {
+        paintStroke(dst, s, cnt);
+    }
+    else if (mode == 1) {
+
     }
 
+    cvShowImage("dst", dst);
+    cvWaitKey();
     delete[] s;
 }
 
-
-void paint(IplImage *src, IplImage *dst, int size[]) {
-	int h = src->height;
-	int w = src->width;
-	IplImage *ref = cvCreateImage(cvSize(h, w), 8, 3);
-	
-	int k = 3;
-
-	for (int i = 0; i < 5; i++) {
-		cvSmooth(src, ref, CV_GAUSSIAN, size[i] * 4 - 1);
-		paintLayer(dst, ref, size[i]);
-        cvShowImage("dst", dst);
-        cvWaitKey(1000);
-	}
-}
-
-int main() {
-	IplImage *src = cvLoadImage("c:\\temp\\lena.jpg");
-	CvSize isize = cvGetSize(src);
-
-	IplImage *dst = cvCreateImage(isize, 8, 3);
-	cvSet(dst, cvScalar(255,255,255));
-
-	int size[5] = { 35, 15, 7, 5, 3 };
-	cvShowImage("src", src);
-	paint(src, dst, size);
-	cvWaitKey();
-
-	return 0;
+void paintStroke(IplImage *dst, BrushStroke *s, int k) {
+    for (int i = 0; i < k; i++) {
+        cvCircle(dst, s[i].sp, s[i].size, s[i].c, -1);
+    }
 }
