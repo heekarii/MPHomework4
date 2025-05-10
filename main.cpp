@@ -73,7 +73,7 @@ void paint(IplImage *src, IplImage *dst, int size[], int mode) {
     int h = src->height;
     int w = src->width;
     // reference image
-    IplImage *ref = cvCreateImage(cvSize(h, w), 8, 3);
+    IplImage *ref = cvCreateImage(cvSize(w, h), 8, 3);
     cvShowImage("dst", dst);
     cvWaitKey(1000);
 
